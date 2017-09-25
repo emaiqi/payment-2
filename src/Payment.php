@@ -63,21 +63,3 @@ class Payment
         return new $gateway($this->config->get($this->drivers));
     }
 }
-
-// 测试
-$config = [
-    'app_id'               => '', // 应用ID,您的APPID。
-    'merchant_private_key' => '', // 商户私钥
-    'return_url'           => '', // 同步跳转
-    'notify_url'           => '', // 异步通知地址
-    'alipay_public_key'    => '', // 支付宝公钥,查看地址：https://openhome.alipay.com/platform/keyManage.htm 对应APPID下的支付宝公钥。
-];
-
-$payment = new Payment($config);
-
-$params = [
-    'out_trade_no' => time(),
-    'total_amount' => '1',
-    'subject'      => 'test subject',
-];
-$payment->driver('alipay')->gateway('web')->pay($params);
