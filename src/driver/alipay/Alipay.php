@@ -10,6 +10,7 @@ namespace king\payment\driver\alipay;
 
 use king\payment\base\Configure;
 use king\payment\base\GatewayInterface;
+use king\payment\base\InvalidArgumentException;
 
 abstract class Alipay implements GatewayInterface
 {
@@ -85,25 +86,57 @@ abstract class Alipay implements GatewayInterface
         ];
     }
 
+    /**
+     * pay
+     * @auth King
+     *
+     * @param array $config_biz
+     */
     public function pay(array $config_biz)
     {
         $config_biz['product_code'] = $this->getProductCode();
 
         $this->config['method'] = $this->getMethod();
         $this->config['biz_content'] = json_encode($config_biz, JSON_UNESCAPED_UNICODE);
-        $this->config['sign'] = $this->generateSign($this->config, $this->signType);
+        $this->config['sign'] = $this->generateSign($this->config);
     }
 
-    protected function generateSign($params, $signType = "RSA")
+    /**
+     * 生成签名
+     * generateSign
+     * @auth King
+     *
+     * @param        $params
+     *
+     * @return string
+     */
+    protected function generateSign($params)
     {
-        return $this->sign($this->getSignContent($params), $signType);
+        return $this->sign($this->getSignContent($params));
     }
 
-    protected function rsaSign($params, $signType = "RSA")
+    /**
+     * rsaSign
+     * @auth King
+     *
+     * @param        $params
+     *
+     * @return string
+     */
+    protected function rsaSign($params)
     {
-        return $this->sign($this->getSignContent($params), $signType);
+        return $this->sign($this->getSignContent($params));
     }
 
+    /**
+     * getSignContent
+     * @auth King
+     *
+     * @param array $params
+     * @param bool  $verify
+     *
+     * @return bool|string
+     */
     protected function getSignContent(array $params, $verify = false)
     {
         ksort($params);
@@ -125,24 +158,60 @@ abstract class Alipay implements GatewayInterface
         return $stringToBeSigned;
     }
 
-    protected function sign($data, $signType = 'RSA')
+    /**
+     * sign
+     * @auth King
+     *
+     * @param $data
+     *
+     * @return string
+     */
+    protected function sign($data)
     {
         $priKey = $this->alipay_config->get('merchant_private_key');
+        if ($this->checkEmpty($priKey)) {
+            throw new InvalidArgumentException('您使用的私钥格式错误，请检查RSA私钥配置');
+        }
+
         $res = "-----BEGIN RSA PRIVATE KEY-----\n" .
             wordwrap($priKey, 64, "\n", true) .
             "\n-----END RSA PRIVATE KEY-----";
 
-        ($res) or die('您使用的私钥格式错误，请检查RSA私钥配置');
-
-        if ("RSA2" == $signType) {
-            openssl_sign($data, $sign, $res, OPENSSL_ALGO_SHA256);
-        } else {
-            openssl_sign($data, $sign, $res);
-        }
+        openssl_sign($data, $sign, $res);
 
         $sign = base64_encode($sign);
 
         return $sign;
+    }
+
+    /**
+     * 验证签名
+     * verify
+     * @auth King
+     *
+     * @param      $params
+     * @param null $sign
+     *
+     * @return bool
+     */
+    public function verify($params, $sign = null)
+    {
+        $sign = is_null($sign) ? $params['sign'] : $sign;
+        $params['sign_type'] = null;
+        $params['sign'] = null;
+
+        $pubKey = $this->alipay_config->get('alipay_public_key');
+        if ($this->checkEmpty($pubKey)) {
+            throw new InvalidArgumentException('支付宝RSA公钥错误，请检查公钥文件格式是否正确');
+        }
+
+        $res = "-----BEGIN PUBLIC KEY-----\n" .
+            wordwrap($pubKey, 64, "\n", true) .
+            "\n-----END PUBLIC KEY-----";
+
+        $result = (bool)openssl_verify($this->getSignContent($params), base64_decode($sign), $res);
+
+        return $result;
     }
 
     /**
@@ -153,10 +222,10 @@ abstract class Alipay implements GatewayInterface
      */
     public function buildPayHtml()
     {
-        $sHtml = "<form id='alipaysubmit' name='alipaysubmit' action='".$this->gateway."' method='POST'>";
+        $sHtml = "<form id='alipaysubmit' name='alipaysubmit' action='" . $this->gatewayUrl . "' method='POST'>";
         while (list($key, $val) = each($this->config)) {
             $val = str_replace("'", '&apos;', $val);
-            $sHtml .= "<input type='hidden' name='".$key."' value='".$val."'/>";
+            $sHtml .= "<input type='hidden' name='" . $key . "' value='" . $val . "'/>";
         }
 
         //submit按钮控件请不要含有name属性
