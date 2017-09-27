@@ -23,4 +23,22 @@ $params = [
         
 $payment = new Payment($config); 
 $payment->driver('alipay')->gateway('web')->pay($params);
+
+// 微信支付
+$config = [
+            'appid'      => '', // 应用ID,您的APPID。
+            'mch_id'     => '', // 商户私钥
+            'notify_url' => '', // 回调地址
+            'key'        => '', // 商户支付密钥
+            'ssl_cert'   => '', // 仅退款、撤销订单时需要
+            'ssl_key'    => '', // 仅退款、撤销订单时需要
+        ];
+$params = [
+            'body'             => '',   // 订单描述
+            'out_trade_no'     => '',   // 商户订单号
+            'total_fee'        => '',   // 订单金额，单位：分
+            'spbill_create_ip' => '',   // 调用 API 服务器的 IP
+        ];
+$payment = new Payment($config); 
+$payment->driver('wxpay')->gateway('scan')->pay($params);
 ```
